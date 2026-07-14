@@ -1,4 +1,4 @@
-﻿<!--MIT License
+<!--MIT License
 
 Copyright (c) 2026 Whon_PBcy
 Copyright (c) 2013 Johan Nordberg (for gif.js)
@@ -24,252 +24,297 @@ SOFTWARE.--><!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>图片序列合成 GIF - 离线版 (中/EN)</title>
+  <title>Image-Sequence-to-GIF-Tool</title>
   <style>
     :root {
-      --bg: #1e1e2f;
-      --panel: #2a2a3d;
-      --text: #e0e0e0;
-      --text-secondary: #aaa;
-      --accent: #6c63ff;
-      --accent-hover: #5a52e0;
-      --border: #3f3f5c;
-      --input-bg: #1a1a2a;
-      --drop-bg: rgba(255,255,255,0.02);
-      --preview-bg: rgba(0,0,0,0.15);
-      --status-bg: rgba(255,255,255,0.05);
+      --bg: #1e1e2f; --panel: #2a2a3d; --text: #e0e0e0; --text-secondary: #aaa;
+      --accent: #6c63ff; --accent-hover: #5a52e0; --border: #3f3f5c;
+      --input-bg: #1a1a2a; --drop-bg: rgba(255,255,255,0.02);
+      --preview-bg: rgba(0,0,0,0.15); --status-bg: rgba(255,255,255,0.05);
       --file-name-bg: rgba(0,0,0,0.3);
-      --preview-size: 60px;
+      --main-preview-size: 275px; --preinput-preview-size: 100px;
+      --gif-preview-max-h: 200px;
     }
     body.light-theme {
-      --bg: #f5f5f5;
-      --panel: #ffffff;
-      --text: #333333;
-      --text-secondary: #666666;
-      --border: #e0e0e0;
-      --input-bg: #f0f0f0;
-      --drop-bg: rgba(0,0,0,0.02);
-      --preview-bg: rgba(0,0,0,0.03);
-      --status-bg: rgba(0,0,0,0.03);
+      --bg: #f5f5f5; --panel: #ffffff; --text: #333333; --text-secondary: #666666;
+      --border: #e0e0e0; --input-bg: #f0f0f0; --drop-bg: rgba(0,0,0,0.02);
+      --preview-bg: rgba(0,0,0,0.03); --status-bg: rgba(0,0,0,0.03);
       --file-name-bg: rgba(0,0,0,0.05);
     }
+    html, body { height: 100%; margin: 0; padding: 0; }
     body {
       font-family: 'Segoe UI', system-ui, sans-serif;
       background: var(--bg); color: var(--text);
-      display: flex; justify-content: center; padding: 2rem; margin: 0;
+      display: flex; justify-content: center;
       transition: background 0.3s, color 0.3s;
+      user-select: none; overflow-y: auto; overflow-x: hidden;
     }
     .container {
-      max-width: 1100px; width: 100%;
-      display: flex; gap: 1.5rem; align-items: flex-start;
+      width: 100%; min-height: 100vh;
+      display: flex; gap: 0; padding: 1.5rem; box-sizing: border-box;
     }
-    .preview-module, .settings-module {
+    .resizer {
+      background: transparent; transition: background 0.2s;
+      z-index: 10; pointer-events: none; flex-shrink: 0;
+    }
+    .resizer:hover, .resizer.active { background: var(--accent); }
+    .resizer-horizontal { width: 100%; height: 6px; cursor: row-resize; }
+    .resizer-vertical { width: 6px; cursor: col-resize; }
+    .left-column { display: flex; flex-direction: column; min-width: 300px; }
+    .right-column { display: flex; flex-direction: column; min-width: 250px; }
+    .input-panel {
+      flex: 5; min-height: 300px; display: flex; flex-direction: row;
+      background: var(--panel); border-radius: 16px;
+      padding: 1.5rem; box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+      transition: background 0.3s; gap: 1rem; overflow: hidden;
+    }
+    .preinput-panel {
+      flex: 5; min-height: 300px; display: flex; flex-direction: column;
       background: var(--panel); border-radius: 16px;
       padding: 1.5rem; box-shadow: 0 20px 40px rgba(0,0,0,0.4);
       transition: background 0.3s;
     }
-    .preview-module { flex: 1.2; display: flex; flex-direction: column; }
-    .settings-module { flex: 0.8; display: flex; flex-direction: column; }
+    .settings-panel {
+      flex: 6; min-height: 300px; display: flex; flex-direction: column;
+      background: var(--panel); border-radius: 16px;
+      padding: 1.5rem; box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+      transition: background 0.3s; overflow-y: auto;
+    }
+    .preview-panel {
+      flex: 4; min-height: 200px; display: flex; flex-direction: column; align-items: center;
+      background: var(--panel); border-radius: 16px;
+      padding: 1.5rem; box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+      transition: background 0.3s;
+    }
+    .drop-zone-wrapper { flex: 0 0 calc(16.666% - 1rem); display: flex; flex-direction: column; }
     .drop-zone {
-      border: 2px dashed var(--border); border-radius: 12px;
-      padding: 1.5rem; text-align: center; cursor: pointer;
-      margin-bottom: 1rem; transition: 0.2s; background: var(--drop-bg);
+      flex: 1; border: 2px dashed var(--border); border-radius: 12px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      cursor: pointer; transition: 0.2s; background: var(--drop-bg);
+      aspect-ratio: 1 / 1; padding: 0.5rem; text-align: center;
     }
-    .drop-zone:hover, .drop-zone.dragover {
-      border-color: var(--accent); background: rgba(108,99,255,0.05);
-    }
-    .file-count { margin: 0.5rem 0; color: var(--text-secondary); font-size: 0.85rem; }
+    .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); background: rgba(108,99,255,0.05); }
+    .file-count { margin-top: 0.5rem; color: var(--text-secondary); font-size: 0.8rem; }
+    .preview-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
     .preview-grid {
       display: flex; flex-wrap: wrap; gap: 0.6rem;
-      max-height: 450px; overflow-y: auto; padding: 0.5rem;
-      background: var(--preview-bg); border-radius: 8px;
-      margin: 0.8rem 0; flex: 1;
+      flex: 1; overflow-y: auto; padding: 0.5rem;
+      background: var(--preview-bg); border-radius: 8px; margin-top: 0.8rem;
+      min-height: 150px;
     }
     .preview-item {
-      display: flex; flex-direction: column; align-items: center;
+      position: relative; display: flex; flex-direction: column; align-items: center;
       cursor: grab; transition: transform 0.15s, border-color 0.15s;
-      border: 2px solid transparent; border-radius: 6px;
-      padding: 2px; user-select: none;
+      border: 2px solid transparent; border-radius: 6px; padding: 2px; user-select: none;
     }
     .preview-item.dragging { opacity: 0.4; transform: scale(0.95); }
     .preview-item.drag-over { border-color: var(--accent); transform: scale(1.05); }
     .preview-item:active { cursor: grabbing; }
     .preview-item img {
-      width: var(--preview-size); height: var(--preview-size);
+      width: var(--main-preview-size); height: var(--main-preview-size);
       object-fit: cover; border-radius: 4px;
     }
-    .preview-item .index {
-      font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px; text-align: center;
+    .preview-item .delete-btn {
+      position: absolute; top: -6px; right: -6px;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: #e06c75; color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; cursor: pointer; z-index: 5; transition: transform 0.15s;
     }
-    .preview-controls {
-      display: flex; align-items: center; gap: 0.8rem; margin-top: 0.5rem;
-    }
+    .preview-item .delete-btn:hover { transform: scale(1.2); }
+    .preview-item .index { font-size: 0.7rem; color: var(--text-secondary); margin-top: 2px; text-align: center; }
+    .preview-controls { display: flex; align-items: center; gap: 0.8rem; margin-top: 0.5rem; }
     .preview-controls label { font-size: 0.85rem; white-space: nowrap; }
     .preview-controls input[type="range"] { flex: 1; }
-
-    .settings-module h2 {
-      font-size: 1.1rem; margin: 0 0 1.2rem 0; font-weight: 500;
-      color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem;
-    }
-    .row {
-      display: flex; align-items: center; gap: 0.8rem; margin: 0.8rem 0;
-    }
-    .row label { width: 100px; font-size: 0.85rem; flex-shrink: 0; }
-    input, select {
-      padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border);
-      background: var(--input-bg); color: var(--text); flex: 1; min-width: 0;
-      transition: background 0.3s, color 0.3s, border 0.3s;
-    }
-    .switch-row { display: flex; align-items: center; gap: 0.8rem; }
-    .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
-    .switch input { display: none; }
-    .slider {
-      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-      background-color: var(--border); transition: 0.3s; border-radius: 24px;
-    }
-    .slider:before {
-      position: absolute; content: ""; height: 18px; width: 18px;
-      left: 3px; bottom: 3px; background-color: white;
-      transition: 0.3s; border-radius: 50%;
-    }
-    input:checked + .slider { background-color: var(--accent); }
-    input:checked + .slider:before { transform: translateX(20px); }
-
-    button {
-      padding: 0.6rem 1rem; background: var(--accent);
-      color: white; border: none; border-radius: 8px;
-      cursor: pointer; font-size: 0.85rem; transition: 0.2s;
-    }
+    h2 { font-size: 1.1rem; margin: 0 0 0.8rem 0; font-weight: 500; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+    .row { display: flex; align-items: center; gap: 0.8rem; margin: 0.6rem 0; }
+    .row label { width: 90px; font-size: 0.85rem; flex-shrink: 0; }
+    input, select { padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text); flex: 1; min-width: 0; transition: background 0.3s, color 0.3s, border 0.3s; }
+    button { padding: 0.5rem 0.8rem; background: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 0.85rem; transition: 0.2s; }
     button:hover:not(:disabled) { background: var(--accent-hover); }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .generate-btn {
-      width: 100%; padding: 0.8rem; font-size: 1rem; margin-top: 1rem;
-    }
-    .status {
-      margin-top: 1rem; padding: 0.5rem; text-align: center;
-      border-radius: 8px; font-size: 0.85rem;
-      background: var(--status-bg); transition: background 0.3s;
-    }
+    .generate-btn { width: 100%; padding: 0.8rem; font-size: 1rem; margin-top: 0.5rem; }
+    .status { margin-top: 0.5rem; padding: 0.5rem; text-align: center; border-radius: 8px; font-size: 0.85rem; background: var(--status-bg); transition: background 0.3s; }
     .status.loading { background: rgba(108,99,255,0.15); color: #b3b3ff; }
     .status.success { background: rgba(76,175,132,0.15); color: #81c784; }
     .status.error { background: rgba(224,108,117,0.15); color: #ef9a9a; }
-    .file-name-preview {
-      background: var(--file-name-bg); border-radius: 6px;
-      padding: 0.4rem 0.8rem; font-size: 0.8rem; color: var(--text-secondary);
-      text-align: center; margin: 0.5rem 0; transition: background 0.3s, color 0.3s;
-    }
-    .top-buttons {
-      display: flex; align-items: center; justify-content: flex-end;
-      margin-bottom: 0.5rem; gap: 0.5rem;
-    }
-    .top-buttons button {
-      background: var(--panel); border: 1px solid var(--border);
-      color: var(--text); display: flex; align-items: center; gap: 0.3rem;
-    }
+    .file-name-preview { background: var(--file-name-bg); border-radius: 6px; padding: 0.4rem 0.8rem; font-size: 0.8rem; color: var(--text-secondary); text-align: center; margin: 0.5rem 0; transition: background 0.3s, color 0.3s; }
+    .top-buttons { display: flex; align-items: center; justify-content: flex-end; margin-bottom: 0.5rem; gap: 0.5rem; flex-wrap: wrap; }
+    .top-buttons button { background: var(--panel); border: 1px solid var(--border); color: var(--text); display: flex; align-items: center; gap: 0.3rem; }
     .top-buttons button:hover { background: var(--border); }
     .hidden { display: none; }
+    .switch-row { display: flex; align-items: center; gap: 0.4rem; }
+    .switch { position: relative; display: inline-block; width: 32px; height: 18px; }
+    .switch input { display: none; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--border); transition: 0.3s; border-radius: 18px; }
+    .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px; background-color: white; transition: 0.3s; border-radius: 50%; }
+    input:checked + .slider { background-color: var(--accent); }
+    input:checked + .slider:before { transform: translateX(14px); }
+    .preinput-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+    .preinput-header span { font-size: 0.9rem; font-weight: 500; }
+    .preinput-grid { display: flex; flex-wrap: wrap; gap: 0.4rem; flex: 1; overflow-y: auto; padding: 0.3rem; background: var(--preview-bg); border-radius: 4px; margin-bottom: 0.5rem; }
+    .preinput-item { display: flex; flex-direction: column; align-items: center; cursor: grab; user-select: none; }
+    .preinput-item img { width: var(--preinput-preview-size); height: var(--preinput-preview-size); object-fit: cover; border-radius: 3px; border: 1px solid var(--border); }
+    .preinput-item .file-name { font-size: 0.6rem; color: var(--text-secondary); max-width: var(--preinput-preview-size); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; display: none; }
+    .preinput-grid.show-names .preinput-item .file-name { display: block; }
+    .preinput-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+    .pagination { display: flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; }
+    .pagination button { padding: 0.2rem 0.5rem; font-size: 0.8rem; }
+    .gif-preview-container { width: 100%; text-align: center; background: var(--preview-bg); border-radius: 8px; padding: 0.5rem; margin-top: 0.5rem; flex: 1; display: flex; align-items: center; justify-content: center; }
+    .gif-preview-container img { max-width: 100%; max-height: var(--gif-preview-max-h); border-radius: 4px; border: 1px solid var(--border); }
+    .gif-placeholder { color: var(--text-secondary); font-size: 0.9rem; padding: 2rem 0; }
+    .note-text { font-size: 0.7rem; color: var(--text-secondary); margin-top: 4px; }
 
-    @media (max-width: 700px) {
+    @media (max-width: 1000px) {
       .container { flex-direction: column; }
-      .preview-module, .settings-module { flex: none; width: 100%; }
+      .left-column, .right-column { flex: none; width: 100% !important; }
+      .input-panel { flex-direction: column; }
+      .drop-zone-wrapper { flex: 0 0 auto; aspect-ratio: auto; }
+      .drop-zone { aspect-ratio: auto; min-height: 100px; }
+      .preview-area { width: 100%; }
+      .resizer { display: none; }
+    }
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .panel-header h2 {
+      margin: 0;
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    .panel-header button {
+      flex-shrink: 0;
     }
   </style>
 </head>
 <body>
-<div class="container">
-  <!-- 左侧预览模块 -->
-  <div class="preview-module">
-    <div class="drop-zone" id="dropZone">
-      <p data-i18n="dropText">📁 拖放或点击选择图片（多选）</p>
-      <p style="font-size:0.8rem; margin-top:0.4rem; color: var(--text-secondary);" data-i18n="supportFormats">支持 jpg, png, webp, bmp</p>
-      <input type="file" id="fileInput" multiple accept="image/*" style="display:none">
-      <div class="file-count" id="fileCount"></div>
+<div class="container" id="mainContainer">
+  <div class="left-column" id="leftColumn" style="width:75%;">
+    <div class="input-panel" id="inputPanel">
+      <div class="drop-zone-wrapper">
+        <div class="drop-zone" id="dropZone">
+          <div>📁</div>
+          <div style="font-size:0.8rem; margin-top:0.3rem;" data-i18n="dropTextShort">选择图片</div>
+          <input type="file" id="fileInput" multiple accept="image/*" style="display:none">
+        </div>
+        <div class="file-count" id="fileCount"></div>
+      </div>
+      <div class="preview-area">
+      <div class="panel-header">
+        <h2 data-i18n="inputTitle">📁 文件序列</h2>
+        <button id="clearSequenceBtn" data-i18n="clearSequence">🗑️ 清空序列</button>
+      </div>
+        <div class="preview-grid" id="previewGrid"></div>
+        <div class="preview-controls">
+          <label data-i18n="previewSize">🔍 预览大小</label>
+          <input type="range" id="previewSize" min="30" max="300" value="275">
+          <span id="previewSizeVal" style="font-size:0.8rem;">275px</span>
+        </div>
+      </div>
     </div>
-    <div class="preview-grid" id="previewGrid"></div>
-    <div class="preview-controls">
-      <label data-i18n="previewSize">🔍 预览大小</label>
-      <input type="range" id="previewSize" min="30" max="300" value="60">
-      <span id="previewSizeVal" style="font-size:0.8rem;">60px</span>
+
+    <div class="resizer resizer-horizontal" id="resizerH"></div>
+
+    <div class="preinput-panel" id="preinputPanel">
+      <div class="preinput-header">
+        <span data-i18n="preinputTitle">📥 预输入文件 (监控)</span>
+        <label class="switch">
+          <input type="checkbox" id="preinputToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="note-text" data-i18n="monitorNote">⚠️ 不建议长时间开启监控，可能导致卡顿。</div>
+      <div class="row">
+        <label data-i18n="preinputSize">缩略图大小</label>
+        <input type="range" id="preinputSizeSlider" min="20" max="300" value="100">
+        <span id="preinputSizeVal" style="font-size:0.8rem;">100px</span>
+      </div>
+      <div class="switch-row" style="margin-bottom: 0.5rem;">
+        <label class="switch"><input type="checkbox" id="showNamesToggle"><span class="slider"></span></label>
+        <span style="font-size:0.75rem; color: var(--text-secondary);" data-i18n="showNames">显示文件名</span>
+      </div>
+      <div class="preinput-actions">
+        <div class="pagination">
+          <button id="prevPageBtn">◀</button><span id="pageInfo">1/1</span><button id="nextPageBtn">▶</button>
+        </div>
+        <label style="font-size:0.8rem; margin-left:0.5rem;">
+          <span data-i18n="pageSizeLabel">每页</span>
+          <input type="number" id="pageSizeInput" value="10" min="1" max="100" step="1" style="width:50px; padding:0.2rem;">
+        </label>
+        <button id="addAllPendingBtn" data-i18n="addAllPending">➕ 全部添加</button>
+        <button id="clearPendingBtn" data-i18n="clearPending">🗑️ 清空</button>
+      </div>
+      <div class="row" style="margin-top:0.3rem;">
+        <label data-i18n="sortBy">排序</label>
+        <select id="sortBySelect">
+          <option value="name" data-i18n="sortName">名称</option>
+          <option value="size" data-i18n="sortSize">大小</option>
+          <option value="time" data-i18n="sortTime">时间</option>
+        </select>
+        <button id="sortOrderBtn" data-i18n="sortAsc">升序 ↑</button>
+      </div>
+      <div class="preinput-grid" id="preinputGrid"></div>
+      <div style="font-size:0.7rem; color: var(--text-secondary); margin-top:4px;" id="preinputCount"></div>
     </div>
   </div>
 
-  <!-- 右侧设置模块 -->
-  <div class="settings-module">
-    <!-- 主题 & 语言切换按钮组 -->
-    <div class="top-buttons">
-      <button id="langToggleBtn">
-        <span id="langIcon">🌐</span> <span id="langText">EN</span>
-      </button>
-      <button id="themeToggleBtn">
-        <span id="themeIcon">☀️</span> <span id="themeText">浅色</span>
-      </button>
-    </div>
-    <h2 data-i18n="settingsTitle">⚙️ 合成设置</h2>
-    <div class="row">
-      <label data-i18n="fps">帧率 (fps)</label>
-      <input type="number" id="fps" value="10" min="1" max="30">
-    </div>
-    <div class="row">
-      <label data-i18n="quality">质量 (1-30)</label>
-      <input type="range" id="quality" min="1" max="30" value="15">
-      <span id="qualityVal" style="font-size:0.8rem;">15</span>
-    </div>
-    <div class="row">
-      <label data-i18n="workers">线程数</label>
-      <input type="number" id="workers" min="1" max="16" value="4" placeholder="自动">
-      <span style="font-size:0.75rem; color: var(--text-secondary);" data-i18n="workersHint">建议4-8</span>
-    </div>
-    <div class="row">
-      <label data-i18n="loopFrames">前N帧重复</label>
-      <input type="number" id="loopFrames" value="0" min="0" max="999" step="1" placeholder="帧数">
-      <span style="font-size:0.7rem; color: var(--text-secondary);" data-i18n="framesUnit">帧数</span>
-    </div>
-    <div class="row" style="margin-top:-0.3rem;">
-      <label data-i18n="loopRepeat">重复次数</label>
-      <input type="number" id="loopRepeat" value="1" min="1" max="99" step="1" placeholder="次数">
-      <span style="font-size:0.7rem; color: var(--text-secondary);" data-i18n="repeatHint">(含原本)</span>
-    </div>
-    <h2 style="margin-top:1.5rem;" data-i18n="namingTitle">🏷️ 文件命名</h2>
-    <div class="switch-row" style="margin-bottom: 0.5rem;">
-      <label class="switch">
-        <input type="checkbox" id="namingToggle" checked>
-        <span class="slider"></span>
-      </label>
-      <span style="font-size:0.85rem;" data-i18n="enableNamingRule">启用命名规则</span>
-    </div>
-    <div id="ruleMode">
-      <div class="row">
-        <label data-i18n="baseName">基础名称</label>
-        <input type="text" id="baseName" value="成品" maxlength="50">
+  <div class="resizer resizer-vertical" id="resizerV"></div>
+
+  <div class="right-column" id="rightColumn" style="width:25%;">
+    <div class="settings-panel" id="settingsPanel">
+      <div class="top-buttons">
+        <button id="layoutBtn" data-i18n="layoutBtn"></button>
+        <button id="resetLayoutBtn" data-i18n="resetLayoutBtn"></button>
+        <button id="langToggleBtn"><span id="langIcon">🌐</span> <span id="langText">EN</span></button>
+        <button id="themeToggleBtn"><span id="themeIcon">☀️</span> <span id="themeText">浅色</span></button>
       </div>
-      <div class="row">
-        <label data-i18n="startSeq">起始序号</label>
-        <input type="number" id="startSeq" value="1" min="1" max="9999" step="1">
+      <h2 data-i18n="settingsTitle">⚙️ 合成设置</h2>
+      <div class="row"><label data-i18n="fps">帧率 (fps)</label><input type="number" id="fps" value="10" min="1" max="30"></div>
+      <div class="row"><label data-i18n="quality">质量 (1-30)</label><input type="range" id="quality" min="1" max="30" value="15"><span id="qualityVal" style="font-size:0.8rem;">15</span></div>
+      <div class="row"><label data-i18n="workers">线程数</label><input type="number" id="workers" min="1" max="16" value="4" placeholder="自动"><span style="font-size:0.75rem; color: var(--text-secondary);" data-i18n="workersHint">建议4-8</span></div>
+      <div class="row"><label data-i18n="loopFrames">前N帧重复</label><input type="number" id="loopFrames" value="0" min="0" max="999" step="1" placeholder="帧数"><span style="font-size:0.7rem; color: var(--text-secondary);" data-i18n="framesUnit">帧数</span></div>
+      <div class="row" style="margin-top:-0.3rem;"><label data-i18n="loopRepeat">重复次数</label><input type="number" id="loopRepeat" value="1" min="1" max="99" step="1" placeholder="次数"><span style="font-size:0.7rem; color: var(--text-secondary);" data-i18n="repeatHint">(含原本)</span></div>
+      <h2 style="margin-top:1rem;" data-i18n="namingTitle">🏷️ 文件命名</h2>
+      <div class="switch-row" style="margin-bottom: 0.5rem;">
+        <label class="switch"><input type="checkbox" id="namingToggle" checked><span class="slider"></span></label>
+        <span style="font-size:0.85rem;" data-i18n="enableNamingRule">启用命名规则</span>
       </div>
-      <div class="file-name-preview" id="fileNamePreviewRule"></div>
-      <div style="display: flex; gap: 0.5rem;">
-        <button id="resetNamingBtn" data-i18n="resetSeq">🔄 重置序号</button>
-        <span style="font-size:0.7rem; color: var(--text-secondary); align-self:center;" data-i18n="resetHint">重置后下一个文件将从起始序号开始</span>
+      <div id="ruleMode">
+        <div class="row"><label data-i18n="baseName">基础名称</label><input type="text" id="baseName" value="成品" maxlength="50"></div>
+        <div class="row"><label data-i18n="startSeq">起始序号</label><input type="number" id="startSeq" value="1" min="1" max="9999" step="1"></div>
+        <div class="file-name-preview" id="fileNamePreviewRule"></div>
+        <div style="display: flex; gap: 0.5rem;">
+          <button id="resetNamingBtn" data-i18n="resetSeq">🔄 重置序号</button>
+          <span style="font-size:0.7rem; color: var(--text-secondary); align-self:center;" data-i18n="resetHint">重置后下一个文件将从起始序号开始</span>
+        </div>
       </div>
-    </div>
-    <div id="fixedMode" class="hidden">
-      <div class="row">
-        <label data-i18n="fixedFileName">固定文件名</label>
-        <input type="text" id="fixedFileName" value="动画" maxlength="50">
-        <span style="font-size:0.7rem; color: var(--text-secondary);">.gif</span>
+      <div id="fixedMode" class="hidden">
+        <div class="row"><label data-i18n="fixedFileName">固定文件名</label><input type="text" id="fixedFileName" value="动画" maxlength="50"><span style="font-size:0.7rem; color: var(--text-secondary);">.gif</span></div>
+        <div class="file-name-preview" id="fileNamePreviewFixed"></div>
       </div>
-      <div class="file-name-preview" id="fileNamePreviewFixed"></div>
+      <button id="generateBtn" class="generate-btn" disabled data-i18n="generateBtn">合成 GIF</button>
+      <div class="status" id="status"></div>
     </div>
 
-    <button id="generateBtn" class="generate-btn" disabled data-i18n="generateBtn">生成 GIF</button>
-    <div class="status" id="status"></div>
+    <div class="resizer resizer-horizontal" id="resizerH2"></div>
+
+    <div class="preview-panel" id="previewPanel">
+      <h2 data-i18n="previewTitle">🎬 成品预览</h2>
+      <div class="gif-preview-container" id="gifPreviewContainer">
+        <div class="gif-placeholder" data-i18n="noPreview">尚未生成 GIF</div>
+        <img id="gifPreviewImg" style="display: none;" alt="GIF preview" />
+      </div>
+      <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; width: 100%;">
+        <button id="previewBtn" style="flex:1;" data-i18n="previewBtn">👁 预览</button>
+        <button id="resetPreviewBtn" style="flex:1;" data-i18n="resetPreviewBtn">🔄 重置</button>
+      </div>
+    </div>
   </div>
 </div>
 
-<!-- 离线本地 gif.js 主库 -->
 <script src="gif.js"></script>
-
-<!-- 内嵌 gif.worker.js 代码（已粘贴实际代码） -->
 <script>
   const GIF_WORKER_CODE = `// gif.worker.js 0.2.0 - https://github.com/jnordberg/gif.js
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){var NeuQuant=require("./TypedNeuQuant.js");var LZWEncoder=require("./LZWEncoder.js");function ByteArray(){this.page=-1;this.pages=[];this.newPage()}ByteArray.pageSize=4096;ByteArray.charMap={};for(var i=0;i<256;i++)ByteArray.charMap[i]=String.fromCharCode(i);ByteArray.prototype.newPage=function(){this.pages[++this.page]=new Uint8Array(ByteArray.pageSize);this.cursor=0};ByteArray.prototype.getData=function(){var rv="";for(var p=0;p<this.pages.length;p++){for(var i=0;i<ByteArray.pageSize;i++){rv+=ByteArray.charMap[this.pages[p][i]]}}return rv};ByteArray.prototype.writeByte=function(val){if(this.cursor>=ByteArray.pageSize)this.newPage();this.pages[this.page][this.cursor++]=val};ByteArray.prototype.writeUTFBytes=function(string){for(var l=string.length,i=0;i<l;i++)this.writeByte(string.charCodeAt(i))};ByteArray.prototype.writeBytes=function(array,offset,length){for(var l=length||array.length,i=offset||0;i<l;i++)this.writeByte(array[i])};function GIFEncoder(width,height){this.width=~~width;this.height=~~height;this.transparent=null;this.transIndex=0;this.repeat=-1;this.delay=0;this.image=null;this.pixels=null;this.indexedPixels=null;this.colorDepth=null;this.colorTab=null;this.neuQuant=null;this.usedEntry=new Array;this.palSize=7;this.dispose=-1;this.firstFrame=true;this.sample=10;this.dither=false;this.globalPalette=false;this.out=new ByteArray}GIFEncoder.prototype.setDelay=function(milliseconds){this.delay=Math.round(milliseconds/10)};GIFEncoder.prototype.setFrameRate=function(fps){this.delay=Math.round(100/fps)};GIFEncoder.prototype.setDispose=function(disposalCode){if(disposalCode>=0)this.dispose=disposalCode};GIFEncoder.prototype.setRepeat=function(repeat){this.repeat=repeat};GIFEncoder.prototype.setTransparent=function(color){this.transparent=color};GIFEncoder.prototype.addFrame=function(imageData){this.image=imageData;this.colorTab=this.globalPalette&&this.globalPalette.slice?this.globalPalette:null;this.getImagePixels();this.analyzePixels();if(this.globalPalette===true)this.globalPalette=this.colorTab;if(this.firstFrame){this.writeLSD();this.writePalette();if(this.repeat>=0){this.writeNetscapeExt()}}this.writeGraphicCtrlExt();this.writeImageDesc();if(!this.firstFrame&&!this.globalPalette)this.writePalette();this.writePixels();this.firstFrame=false};GIFEncoder.prototype.finish=function(){this.out.writeByte(59)};GIFEncoder.prototype.setQuality=function(quality){if(quality<1)quality=1;this.sample=quality};GIFEncoder.prototype.setDither=function(dither){if(dither===true)dither="FloydSteinberg";this.dither=dither};GIFEncoder.prototype.setGlobalPalette=function(palette){this.globalPalette=palette};GIFEncoder.prototype.getGlobalPalette=function(){return this.globalPalette&&this.globalPalette.slice&&this.globalPalette.slice(0)||this.globalPalette};GIFEncoder.prototype.writeHeader=function(){this.out.writeUTFBytes("GIF89a")};GIFEncoder.prototype.analyzePixels=function(){if(!this.colorTab){this.neuQuant=new NeuQuant(this.pixels,this.sample);this.neuQuant.buildColormap();this.colorTab=this.neuQuant.getColormap()}if(this.dither){this.ditherPixels(this.dither.replace("-serpentine",""),this.dither.match(/-serpentine/)!==null)}else{this.indexPixels()}this.pixels=null;this.colorDepth=8;this.palSize=7;if(this.transparent!==null){this.transIndex=this.findClosest(this.transparent,true)}};GIFEncoder.prototype.indexPixels=function(imgq){var nPix=this.pixels.length/3;this.indexedPixels=new Uint8Array(nPix);var k=0;for(var j=0;j<nPix;j++){var index=this.findClosestRGB(this.pixels[k++]&255,this.pixels[k++]&255,this.pixels[k++]&255);this.usedEntry[index]=true;this.indexedPixels[j]=index}};GIFEncoder.prototype.ditherPixels=function(kernel,serpentine){var kernels={FalseFloydSteinberg:[[3/8,1,0],[3/8,0,1],[2/8,1,1]],FloydSteinberg:[[7/16,1,0],[3/16,-1,1],[5/16,0,1],[1/16,1,1]],Stucki:[[8/42,1,0],[4/42,2,0],[2/42,-2,1],[4/42,-1,1],[8/42,0,1],[4/42,1,1],[2/42,2,1],[1/42,-2,2],[2/42,-1,2],[4/42,0,2],[2/42,1,2],[1/42,2,2]],Atkinson:[[1/8,1,0],[1/8,2,0],[1/8,-1,1],[1/8,0,1],[1/8,1,1],[1/8,0,2]]};if(!kernel||!kernels[kernel]){throw"Unknown dithering kernel: "+kernel}var ds=kernels[kernel];var index=0,height=this.height,width=this.width,data=this.pixels;var direction=serpentine?-1:1;this.indexedPixels=new Uint8Array(this.pixels.length/3);for(var y=0;y<height;y++){if(serpentine)direction=direction*-1;for(var x=direction==1?0:width-1,xend=direction==1?width:0;x!==xend;x+=direction){index=y*width+x;var idx=index*3;var r1=data[idx];var g1=data[idx+1];var b1=data[idx+2];idx=this.findClosestRGB(r1,g1,b1);this.usedEntry[idx]=true;this.indexedPixels[index]=idx;idx*=3;var r2=this.colorTab[idx];var g2=this.colorTab[idx+1];var b2=this.colorTab[idx+2];var er=r1-r2;var eg=g1-g2;var eb=b1-b2;for(var i=direction==1?0:ds.length-1,end=direction==1?ds.length:0;i!==end;i+=direction){var x1=ds[i][1];var y1=ds[i][2];if(x1+x>=0&&x1+x<width&&y1+y>=0&&y1+y<height){var d=ds[i][0];idx=index+x1+y1*width;idx*=3;data[idx]=Math.max(0,Math.min(255,data[idx]+er*d));data[idx+1]=Math.max(0,Math.min(255,data[idx+1]+eg*d));data[idx+2]=Math.max(0,Math.min(255,data[idx+2]+eb*d))}}}}};GIFEncoder.prototype.findClosest=function(c,used){return this.findClosestRGB((c&16711680)>>16,(c&65280)>>8,c&255,used)};GIFEncoder.prototype.findClosestRGB=function(r,g,b,used){if(this.colorTab===null)return-1;if(this.neuQuant&&!used){return this.neuQuant.lookupRGB(r,g,b)}var c=b|g<<8|r<<16;var minpos=0;var dmin=256*256*256;var len=this.colorTab.length;for(var i=0,index=0;i<len;index++){var dr=r-(this.colorTab[i++]&255);var dg=g-(this.colorTab[i++]&255);var db=b-(this.colorTab[i++]&255);var d=dr*dr+dg*dg+db*db;if((!used||this.usedEntry[index])&&d<dmin){dmin=d;minpos=index}}return minpos};GIFEncoder.prototype.getImagePixels=function(){var w=this.width;var h=this.height;this.pixels=new Uint8Array(w*h*3);var data=this.image;var srcPos=0;var count=0;for(var i=0;i<h;i++){for(var j=0;j<w;j++){this.pixels[count++]=data[srcPos++];this.pixels[count++]=data[srcPos++];this.pixels[count++]=data[srcPos++];srcPos++}}};GIFEncoder.prototype.writeGraphicCtrlExt=function(){this.out.writeByte(33);this.out.writeByte(249);this.out.writeByte(4);var transp,disp;if(this.transparent===null){transp=0;disp=0}else{transp=1;disp=2}if(this.dispose>=0){disp=dispose&7}disp<<=2;this.out.writeByte(0|disp|0|transp);this.writeShort(this.delay);this.out.writeByte(this.transIndex);this.out.writeByte(0)};GIFEncoder.prototype.writeImageDesc=function(){this.out.writeByte(44);this.writeShort(0);this.writeShort(0);this.writeShort(this.width);this.writeShort(this.height);if(this.firstFrame||this.globalPalette){this.out.writeByte(0)}else{this.out.writeByte(128|0|0|0|this.palSize)}};GIFEncoder.prototype.writeLSD=function(){this.writeShort(this.width);this.writeShort(this.height);this.out.writeByte(128|112|0|this.palSize);this.out.writeByte(0);this.out.writeByte(0)};GIFEncoder.prototype.writeNetscapeExt=function(){this.out.writeByte(33);this.out.writeByte(255);this.out.writeByte(11);this.out.writeUTFBytes("NETSCAPE2.0");this.out.writeByte(3);this.out.writeByte(1);this.writeShort(this.repeat);this.out.writeByte(0)};GIFEncoder.prototype.writePalette=function(){this.out.writeBytes(this.colorTab);var n=3*256-this.colorTab.length;for(var i=0;i<n;i++)this.out.writeByte(0)};GIFEncoder.prototype.writeShort=function(pValue){this.out.writeByte(pValue&255);this.out.writeByte(pValue>>8&255)};GIFEncoder.prototype.writePixels=function(){var enc=new LZWEncoder(this.width,this.height,this.indexedPixels,this.colorDepth);enc.encode(this.out)};GIFEncoder.prototype.stream=function(){return this.out};module.exports=GIFEncoder},{"./LZWEncoder.js":2,"./TypedNeuQuant.js":3}],2:[function(require,module,exports){var EOF=-1;var BITS=12;var HSIZE=5003;var masks=[0,1,3,7,15,31,63,127,255,511,1023,2047,4095,8191,16383,32767,65535];function LZWEncoder(width,height,pixels,colorDepth){var initCodeSize=Math.max(2,colorDepth);var accum=new Uint8Array(256);var htab=new Int32Array(HSIZE);var codetab=new Int32Array(HSIZE);var cur_accum,cur_bits=0;var a_count;var free_ent=0;var maxcode;var clear_flg=false;var g_init_bits,ClearCode,EOFCode;function char_out(c,outs){accum[a_count++]=c;if(a_count>=254)flush_char(outs)}function cl_block(outs){cl_hash(HSIZE);free_ent=ClearCode+2;clear_flg=true;output(ClearCode,outs)}function cl_hash(hsize){for(var i=0;i<hsize;++i)htab[i]=-1}function compress(init_bits,outs){var fcode,c,i,ent,disp,hsize_reg,hshift;g_init_bits=init_bits;clear_flg=false;n_bits=g_init_bits;maxcode=MAXCODE(n_bits);ClearCode=1<<init_bits-1;EOFCode=ClearCode+1;free_ent=ClearCode+2;a_count=0;ent=nextPixel();hshift=0;for(fcode=HSIZE;fcode<65536;fcode*=2)++hshift;hshift=8-hshift;hsize_reg=HSIZE;cl_hash(hsize_reg);output(ClearCode,outs);outer_loop:while((c=nextPixel())!=EOF){fcode=(c<<BITS)+ent;i=c<<hshift^ent;if(htab[i]===fcode){ent=codetab[i];continue}else if(htab[i]>=0){disp=hsize_reg-i;if(i===0)disp=1;do{if((i-=disp)<0)i+=hsize_reg;if(htab[i]===fcode){ent=codetab[i];continue outer_loop}}while(htab[i]>=0)}output(ent,outs);ent=c;if(free_ent<1<<BITS){codetab[i]=free_ent++;htab[i]=fcode}else{cl_block(outs)}}output(ent,outs);output(EOFCode,outs)}function encode(outs){outs.writeByte(initCodeSize);remaining=width*height;curPixel=0;compress(initCodeSize+1,outs);outs.writeByte(0)}function flush_char(outs){if(a_count>0){outs.writeByte(a_count);outs.writeBytes(accum,0,a_count);a_count=0}}function MAXCODE(n_bits){return(1<<n_bits)-1}function nextPixel(){if(remaining===0)return EOF;--remaining;var pix=pixels[curPixel++];return pix&255}function output(code,outs){cur_accum&=masks[cur_bits];if(cur_bits>0)cur_accum|=code<<cur_bits;else cur_accum=code;cur_bits+=n_bits;while(cur_bits>=8){char_out(cur_accum&255,outs);cur_accum>>=8;cur_bits-=8}if(free_ent>maxcode||clear_flg){if(clear_flg){maxcode=MAXCODE(n_bits=g_init_bits);clear_flg=false}else{++n_bits;if(n_bits==BITS)maxcode=1<<BITS;else maxcode=MAXCODE(n_bits)}}if(code==EOFCode){while(cur_bits>0){char_out(cur_accum&255,outs);cur_accum>>=8;cur_bits-=8}flush_char(outs)}}this.encode=encode}module.exports=LZWEncoder},{}],3:[function(require,module,exports){var ncycles=100;var netsize=256;var maxnetpos=netsize-1;var netbiasshift=4;var intbiasshift=16;var intbias=1<<intbiasshift;var gammashift=10;var gamma=1<<gammashift;var betashift=10;var beta=intbias>>betashift;var betagamma=intbias<<gammashift-betashift;var initrad=netsize>>3;var radiusbiasshift=6;var radiusbias=1<<radiusbiasshift;var initradius=initrad*radiusbias;var radiusdec=30;var alphabiasshift=10;var initalpha=1<<alphabiasshift;var alphadec;var radbiasshift=8;var radbias=1<<radbiasshift;var alpharadbshift=alphabiasshift+radbiasshift;var alpharadbias=1<<alpharadbshift;var prime1=499;var prime2=491;var prime3=487;var prime4=503;var minpicturebytes=3*prime4;function NeuQuant(pixels,samplefac){var network;var netindex;var bias;var freq;var radpower;function init(){network=[];netindex=new Int32Array(256);bias=new Int32Array(netsize);freq=new Int32Array(netsize);radpower=new Int32Array(netsize>>3);var i,v;for(i=0;i<netsize;i++){v=(i<<netbiasshift+8)/netsize;network[i]=new Float64Array([v,v,v,0]);freq[i]=intbias/netsize;bias[i]=0}}function unbiasnet(){for(var i=0;i<netsize;i++){network[i][0]>>=netbiasshift;network[i][1]>>=netbiasshift;network[i][2]>>=netbiasshift;network[i][3]=i}}function altersingle(alpha,i,b,g,r){network[i][0]-=alpha*(network[i][0]-b)/initalpha;network[i][1]-=alpha*(network[i][1]-g)/initalpha;network[i][2]-=alpha*(network[i][2]-r)/initalpha}function alterneigh(radius,i,b,g,r){var lo=Math.abs(i-radius);var hi=Math.min(i+radius,netsize);var j=i+1;var k=i-1;var m=1;var p,a;while(j<hi||k>lo){a=radpower[m++];if(j<hi){p=network[j++];p[0]-=a*(p[0]-b)/alpharadbias;p[1]-=a*(p[1]-g)/alpharadbias;p[2]-=a*(p[2]-r)/alpharadbias}if(k>lo){p=network[k--];p[0]-=a*(p[0]-b)/alpharadbias;p[1]-=a*(p[1]-g)/alpharadbias;p[2]-=a*(p[2]-r)/alpharadbias}}}function contest(b,g,r){var bestd=~(1<<31);var bestbiasd=bestd;var bestpos=-1;var bestbiaspos=bestpos;var i,n,dist,biasdist,betafreq;for(i=0;i<netsize;i++){n=network[i];dist=Math.abs(n[0]-b)+Math.abs(n[1]-g)+Math.abs(n[2]-r);if(dist<bestd){bestd=dist;bestpos=i}biasdist=dist-(bias[i]>>intbiasshift-netbiasshift);if(biasdist<bestbiasd){bestbiasd=biasdist;bestbiaspos=i}betafreq=freq[i]>>betashift;freq[i]-=betafreq;bias[i]+=betafreq<<gammashift}freq[bestpos]+=beta;bias[bestpos]-=betagamma;return bestbiaspos}function inxbuild(){var i,j,p,q,smallpos,smallval,previouscol=0,startpos=0;for(i=0;i<netsize;i++){p=network[i];smallpos=i;smallval=p[1];for(j=i+1;j<netsize;j++){q=network[j];if(q[1]<smallval){smallpos=j;smallval=q[1]}}q=network[smallpos];if(i!=smallpos){j=q[0];q[0]=p[0];p[0]=j;j=q[1];q[1]=p[1];p[1]=j;j=q[2];q[2]=p[2];p[2]=j;j=q[3];q[3]=p[3];p[3]=j}if(smallval!=previouscol){netindex[previouscol]=startpos+i>>1;for(j=previouscol+1;j<smallval;j++)netindex[j]=i;previouscol=smallval;startpos=i}}netindex[previouscol]=startpos+maxnetpos>>1;for(j=previouscol+1;j<256;j++)netindex[j]=maxnetpos}function inxsearch(b,g,r){var a,p,dist;var bestd=1e3;var best=-1;var i=netindex[g];var j=i-1;while(i<netsize||j>=0){if(i<netsize){p=network[i];dist=p[1]-g;if(dist>=bestd)i=netsize;else{i++;if(dist<0)dist=-dist;a=p[0]-b;if(a<0)a=-a;dist+=a;if(dist<bestd){a=p[2]-r;if(a<0)a=-a;dist+=a;if(dist<bestd){bestd=dist;best=p[3]}}}}if(j>=0){p=network[j];dist=g-p[1];if(dist>=bestd)j=-1;else{j--;if(dist<0)dist=-dist;a=p[0]-b;if(a<0)a=-a;dist+=a;if(dist<bestd){a=p[2]-r;if(a<0)a=-a;dist+=a;if(dist<bestd){bestd=dist;best=p[3]}}}}}return best}function learn(){var i;var lengthcount=pixels.length;var alphadec=30+(samplefac-1)/3;var samplepixels=lengthcount/(3*samplefac);var delta=~~(samplepixels/ncycles);var alpha=initalpha;var radius=initradius;var rad=radius>>radiusbiasshift;if(rad<=1)rad=0;for(i=0;i<rad;i++)radpower[i]=alpha*((rad*rad-i*i)*radbias/(rad*rad));var step;if(lengthcount<minpicturebytes){samplefac=1;step=3}else if(lengthcount%prime1!==0){step=3*prime1}else if(lengthcount%prime2!==0){step=3*prime2}else if(lengthcount%prime3!==0){step=3*prime3}else{step=3*prime4}var b,g,r,j;var pix=0;i=0;while(i<samplepixels){b=(pixels[pix]&255)<<netbiasshift;g=(pixels[pix+1]&255)<<netbiasshift;r=(pixels[pix+2]&255)<<netbiasshift;j=contest(b,g,r);altersingle(alpha,j,b,g,r);if(rad!==0)alterneigh(rad,j,b,g,r);pix+=step;if(pix>=lengthcount)pix-=lengthcount;i++;if(delta===0)delta=1;if(i%delta===0){alpha-=alpha/alphadec;radius-=radius/radiusdec;rad=radius>>radiusbiasshift;if(rad<=1)rad=0;for(j=0;j<rad;j++)radpower[j]=alpha*((rad*rad-j*j)*radbias/(rad*rad))}}}function buildColormap(){init();learn();unbiasnet();inxbuild()}this.buildColormap=buildColormap;function getColormap(){var map=[];var index=[];for(var i=0;i<netsize;i++)index[network[i][3]]=i;var k=0;for(var l=0;l<netsize;l++){var j=index[l];map[k++]=network[j][0];map[k++]=network[j][1];map[k++]=network[j][2]}return map}this.getColormap=getColormap;this.lookupRGB=inxsearch}module.exports=NeuQuant},{}],4:[function(require,module,exports){var GIFEncoder,renderFrame;GIFEncoder=require("./GIFEncoder.js");renderFrame=function(frame){var encoder,page,stream,transfer;encoder=new GIFEncoder(frame.width,frame.height);if(frame.index===0){encoder.writeHeader()}else{encoder.firstFrame=false}encoder.setTransparent(frame.transparent);encoder.setRepeat(frame.repeat);encoder.setDelay(frame.delay);encoder.setQuality(frame.quality);encoder.setDither(frame.dither);encoder.setGlobalPalette(frame.globalPalette);encoder.addFrame(frame.data);if(frame.last){encoder.finish()}if(frame.globalPalette===true){frame.globalPalette=encoder.getGlobalPalette()}stream=encoder.stream();frame.data=stream.pages;frame.cursor=stream.cursor;frame.pageSize=stream.constructor.pageSize;if(frame.canTransfer){transfer=function(){var i,len,ref,results;ref=frame.data;results=[];for(i=0,len=ref.length;i<len;i++){page=ref[i];results.push(page.buffer)}return results}();return self.postMessage(frame,transfer)}else{return self.postMessage(frame)}};self.onmessage=function(event){return renderFrame(event.data)}},{"./GIFEncoder.js":1}]},{},[4]);
@@ -280,147 +325,196 @@ SOFTWARE.--><!DOCTYPE html>
 
 <script>
   (async function() {
-    // ========================
-    // 国际化 (i18n)
-    // ========================
+    // 国际化
     const translations = {
       zh: {
-        dropText: '📁 拖放或点击选择图片（多选）',
-        supportFormats: '支持 jpg, png, webp, bmp',
-        previewSize: '🔍 预览大小',
-        settingsTitle: '⚙️ 合成设置',
-        fps: '帧率 (fps)',
-        quality: '质量 (1-30)',
-        workers: '线程数',
-        workersHint: '建议4-8',
-        loopFrames: '前N帧重复',
-        framesUnit: '帧数',
-        loopRepeat: '重复次数',
-        repeatHint: '(含原本)',
-        namingTitle: '🏷️ 文件命名',
-        enableNamingRule: '启用命名规则',
-        baseName: '基础名称',
-        startSeq: '起始序号',
-        resetSeq: '🔄 重置序号',
-        resetHint: '重置后下一个文件将从起始序号开始',
-        fixedFileName: '固定文件名',
-        generateBtn: '生成 GIF',
-        themeLight: '浅色',
-        themeDark: '深色',
-        langSwitch: 'EN',
-        fileCountBase: '已选 {count} 张图片 (拖拽可排序)',
-        fileNamePreviewRule: '当前将命名为：{name}({seq}).gif',
-        fileNamePreviewFixed: '当前将命名为：{name}.gif',
-        statusLoading: '⏳ 正在读取图片...',
-        statusProcessing: '⏳ 合成中 ({workers} 线程)...',
-        statusAddingFrames: '⏳ 添加帧 {current}/{total}...',
-        statusSuccess: '✅ 成功！({size} KB)',
-        statusError: '❌ 生成失败: {message}',
+        clearSequence: '🗑️ 清空序列',dropTextShort: '选择图片', inputTitle: '📁 文件序列',
+        preinputTitle: '📥 预输入文件 (监控)', monitorNote: '⚠️ 文件较多时不建议长时间开启监控，可能导致卡顿。',
+        preinputSize: '缩略图大小', showNames: '显示文件名', addAllPending: '➕ 全部添加', clearPending: '🗑️ 清空',
+        pageSizeLabel: '每页', previewSize: '🔍 预览大小', settingsTitle: '⚙️ 合成设置', previewTitle: '🎬 成品预览',
+        noPreview: '尚未生成 GIF', previewBtn: '👁 预览', resetPreviewBtn: '🔄 重置预览',
+        fps: '帧率 (fps)', quality: '质量 (1-30)', workers: '线程数', workersHint: '建议4-8',
+        loopFrames: '前N帧重复', framesUnit: '帧数', loopRepeat: '重复次数', repeatHint: '(含原本)',
+        namingTitle: '🏷️ 文件命名', enableNamingRule: '启用命名规则', baseName: '基础名称', startSeq: '起始序号',
+        resetSeq: '🔄 重置序号', resetHint: '重置后下一个文件将从起始序号开始', fixedFileName: '固定文件名',
+        generateBtn: '合成 GIF', themeLight: '浅色', themeDark: '深色', langSwitch: 'EN',
+        fileCountBase: '已选 {count} 张 (拖拽排序)', fileNamePreviewRule: '当前将命名为：{name}({seq}).gif',
+        fileNamePreviewFixed: '当前将命名为：{name}.gif', statusLoading: '⏳ 正在读取图片...',
+        statusProcessing: '⏳ 合成中 ({workers} 线程)...', statusAddingFrames: '⏳ 添加帧 {current}/{total}...',
+        statusSuccess: '✅ 成功！({size} KB)', statusError: '❌ 生成失败: {message}',
+        pendingCount: '共 {total} 个文件，第 {page}/{totalPages} 页', sortBy: '排序', sortName: '名称',
+        sortSize: '大小', sortTime: '时间', sortAsc: '升序 ↑', sortDesc: '降序 ↓',
+        layoutBtn: '🔧 改变布局', resetLayoutBtn: '🔄 重置布局',
       },
       en: {
-        dropText: '📁 Drag & drop or click to select images (multi-select)',
-        supportFormats: 'Supports jpg, png, webp, bmp',
-        previewSize: '🔍 Preview Size',
-        settingsTitle: '⚙️ Settings',
-        fps: 'Frame Rate (fps)',
-        quality: 'Quality (1-30)',
-        workers: 'Workers',
-        workersHint: 'Recommended 4-8',
-        loopFrames: 'Repeat First N Frames',
-        framesUnit: 'frames',
-        loopRepeat: 'Repeat Times',
-        repeatHint: '(including original)',
-        namingTitle: '🏷️ File Naming',
-        enableNamingRule: 'Enable Naming Rule',
-        baseName: 'Base Name',
-        startSeq: 'Start Index',
-        resetSeq: '🔄 Reset Index',
-        resetHint: 'Reset to start index for the next file',
-        fixedFileName: 'Fixed Name',
-        generateBtn: 'Generate GIF',
-        themeLight: 'Light',
-        themeDark: 'Dark',
-        langSwitch: '中文',
-        fileCountBase: '{count} images selected (drag to reorder)',
-        fileNamePreviewRule: 'Will be named: {name}({seq}).gif',
-        fileNamePreviewFixed: 'Will be named: {name}.gif',
-        statusLoading: '⏳ Loading images...',
-        statusProcessing: '⏳ Processing ({workers} workers)...',
-        statusAddingFrames: '⏳ Adding frame {current}/{total}...',
-        statusSuccess: '✅ Done! ({size} KB)',
-        statusError: '❌ Failed: {message}',
+        clearSequence: '🗑️ Clear Sequence',dropTextShort: 'Select Images', inputTitle: '📁 File Sequence',
+        preinputTitle: '📥 Pre‑input (Monitored)', monitorNote: '⚠️ Long monitoring with many files may cause lag.',
+        preinputSize: 'Thumb Size', showNames: 'Show filenames', addAllPending: '➕ Add All', clearPending: '🗑️ Clear',
+        pageSizeLabel: 'Per page', previewSize: '🔍 Preview Size', settingsTitle: '⚙️ Settings', previewTitle: '🎬 Preview',
+        noPreview: 'No GIF generated', previewBtn: '👁 Preview', resetPreviewBtn: '🔄 Reset',
+        fps: 'Frame Rate (fps)', quality: 'Quality (1-30)', workers: 'Workers', workersHint: 'Recommended 4-8',
+        loopFrames: 'Repeat First N Frames', framesUnit: 'frames', loopRepeat: 'Repeat Times', repeatHint: '(including original)',
+        namingTitle: '🏷️ File Naming', enableNamingRule: 'Enable Naming Rule', baseName: 'Base Name', startSeq: 'Start Index',
+        resetSeq: '🔄 Reset Index', resetHint: 'Reset to start index for the next file', fixedFileName: 'Fixed Name',
+        generateBtn: 'Generate GIF', themeLight: 'Light', themeDark: 'Dark', langSwitch: '中文',
+        fileCountBase: '{count} images selected (drag to reorder)', fileNamePreviewRule: 'Will be named: {name}({seq}).gif',
+        fileNamePreviewFixed: 'Will be named: {name}.gif', statusLoading: '⏳ Loading images...',
+        statusProcessing: '⏳ Processing ({workers} workers)...', statusAddingFrames: '⏳ Adding frame {current}/{total}...',
+        statusSuccess: '✅ Done! ({size} KB)', statusError: '❌ Failed: {message}',
+        pendingCount: 'Total {total} files, page {page}/{totalPages}', sortBy: 'Sort', sortName: 'Name',
+        sortSize: 'Size', sortTime: 'Time', sortAsc: 'Asc ↑', sortDesc: 'Desc ↓',
+        layoutBtn: '🔧 Change Layout', resetLayoutBtn: '🔄 Reset Layout',
       }
     };
 
     let currentLang = 'zh';
-
     function t(key, params = {}) {
       let text = translations[currentLang][key] || key;
-      for (const [k, v] of Object.entries(params)) {
-        text = text.replace(`{${k}}`, v);
-      }
+      for (const [k, v] of Object.entries(params)) text = text.replace(`{${k}}`, v);
       return text;
     }
-
     function applyLanguage() {
-      // 更新所有带 data-i18n 的元素
       document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
-        if (translations[currentLang][key]) {
-          el.textContent = translations[currentLang][key];
-        }
+        if (translations[currentLang] && translations[currentLang][key]) el.textContent = translations[currentLang][key];
       });
-      // 特殊元素：语言切换按钮文字
       document.getElementById('langText').textContent = currentLang === 'zh' ? 'EN' : '中文';
-      // 更新动态内容
-      updateFileCountText();
-      updateFileNamePreview();
-      // 主题按钮文字
-      updateThemeButtonText();
+      updateFileCountText(); updateFileNamePreview(); updateThemeButtonText();
+      updatePendingCountText(); updatePageInfo(); updateSortButtonText();
     }
-
-    // 语言切换按钮
-    const langToggleBtn = document.getElementById('langToggleBtn');
-    langToggleBtn.addEventListener('click', () => {
+    document.getElementById('langToggleBtn').addEventListener('click', () => {
       currentLang = currentLang === 'zh' ? 'en' : 'zh';
       applyLanguage();
     });
 
-    // ========================
-    // 主题切换
-    // ========================
+    // 主题
     const themeToggleBtn = document.getElementById('themeToggleBtn');
     const themeIcon = document.getElementById('themeIcon');
     const themeText = document.getElementById('themeText');
-
     function updateThemeButtonText() {
       if (document.body.classList.contains('light-theme')) {
-        themeIcon.textContent = '🌙';
-        themeText.textContent = t('themeDark');
+        themeIcon.textContent = '🌙'; themeText.textContent = t('themeDark');
       } else {
-        themeIcon.textContent = '☀️';
-        themeText.textContent = t('themeLight');
+        themeIcon.textContent = '☀️'; themeText.textContent = t('themeLight');
       }
     }
-
     function setTheme(isLight) {
-      if (isLight) {
-        document.body.classList.add('light-theme');
-      } else {
-        document.body.classList.remove('light-theme');
-      }
+      if (isLight) document.body.classList.add('light-theme');
+      else document.body.classList.remove('light-theme');
       updateThemeButtonText();
     }
-
     setTheme(false);
-    themeToggleBtn.addEventListener('click', () => {
-      const isLight = document.body.classList.contains('light-theme');
-      setTheme(!isLight);
-    });
+    themeToggleBtn.addEventListener('click', () => setTheme(!document.body.classList.contains('light-theme')));
 
-    // ========================
-    // DOM 元素
-    // ========================
+    // ========== 布局调整 ==========
+    let isLayoutMode = false;
+    const layoutBtn = document.getElementById('layoutBtn');
+    const resetLayoutBtn = document.getElementById('resetLayoutBtn');
+    const resizers = document.querySelectorAll('.resizer');
+    const leftCol = document.getElementById('leftColumn');
+    const rightCol = document.getElementById('rightColumn');
+    const inputPanel = document.getElementById('inputPanel');
+    const preinputPanel = document.getElementById('preinputPanel');
+    const settingsPanel = document.getElementById('settingsPanel');
+    const previewPanel = document.getElementById('previewPanel');
+
+
+    function lockToPixelSizes() {
+      [inputPanel, preinputPanel, settingsPanel, previewPanel].forEach(panel => {
+        panel.style.flex = 'none';
+        panel.style.height = panel.clientHeight + 'px';
+      });
+    }
+    function restoreFlex() {
+      inputPanel.style.flex = '5'; inputPanel.style.height = '';
+      preinputPanel.style.flex = '5'; preinputPanel.style.height = '';
+      settingsPanel.style.flex = '6'; settingsPanel.style.height = '';
+      previewPanel.style.flex = '4'; previewPanel.style.height = '';
+    }
+    function applyDefaultFlex() {
+      restoreFlex();
+      leftCol.style.width = '75%';
+      rightCol.style.width = '25%';
+    }
+    resetLayoutBtn.addEventListener('click', () => {
+      applyDefaultFlex();
+      if (isLayoutMode) {
+        isLayoutMode = false;
+        resizers.forEach(r => r.style.pointerEvents = 'none');
+        layoutBtn.style.background = '';
+      }
+    });
+    layoutBtn.addEventListener('click', () => {
+      isLayoutMode = !isLayoutMode;
+      if (isLayoutMode) {
+        lockToPixelSizes();
+        resizers.forEach(r => r.style.pointerEvents = 'auto');
+        layoutBtn.style.background = 'var(--accent)';
+      } else {
+        restoreFlex();
+        resizers.forEach(r => r.style.pointerEvents = 'none');
+        layoutBtn.style.background = '';
+      }
+    });
+    resizers.forEach(r => { r.style.pointerEvents = 'none'; });
+
+    function setupHorizontalResizer(resizer, panelAbove, panelBelow) {
+      resizer.addEventListener('mousedown', (e) => {
+        if (!isLayoutMode) return;
+        e.preventDefault(); resizer.classList.add('active');
+        const startY = e.clientY;
+        const startAboveHeight = panelAbove.clientHeight;
+        const startBelowHeight = panelBelow.clientHeight;
+        const onMouseMove = (e2) => {
+          const dy = e2.clientY - startY;
+          let newAbove = startAboveHeight + dy;
+          let newBelow = startBelowHeight - dy;
+          if (newAbove < 150) newAbove = 150;
+          if (newBelow < 150) newBelow = 150;
+          panelAbove.style.height = newAbove + 'px';
+          panelBelow.style.height = newBelow + 'px';
+        };
+        const onMouseUp = () => {
+          resizer.classList.remove('active');
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+        };
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      });
+    }
+    function setupVerticalResizer(resizer, leftColEl, rightColEl) {
+      resizer.addEventListener('mousedown', (e) => {
+        if (!isLayoutMode) return;
+        e.preventDefault(); resizer.classList.add('active');
+        const startX = e.clientX;
+        const containerWidth = leftColEl.parentElement.clientWidth;
+        const startLeftPercent = parseFloat(leftColEl.style.width) || 75;
+        const startRightPercent = parseFloat(rightColEl.style.width) || 25;
+        const onMouseMove = (e2) => {
+          const dx = e2.clientX - startX;
+          const dxPercent = (dx / containerWidth) * 100;
+          let newLeft = startLeftPercent + dxPercent;
+          let newRight = startRightPercent - dxPercent;
+          if (newLeft < 30) { newLeft = 30; newRight = 100 - 30; }
+          if (newRight < 20) { newRight = 20; newLeft = 100 - 20; }
+          leftColEl.style.width = newLeft + '%';
+          rightColEl.style.width = newRight + '%';
+        };
+        const onMouseUp = () => {
+          resizer.classList.remove('active');
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+        };
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      });
+    }
+    setupHorizontalResizer(document.getElementById('resizerH'), inputPanel, preinputPanel);
+    setupHorizontalResizer(document.getElementById('resizerH2'), settingsPanel, previewPanel);
+    setupVerticalResizer(document.getElementById('resizerV'), leftCol, rightCol);
+
+    // ========== 文件管理 ==========
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
     const fileCountDiv = document.getElementById('fileCount');
@@ -444,153 +538,311 @@ SOFTWARE.--><!DOCTYPE html>
     const resetNamingBtn = document.getElementById('resetNamingBtn');
     const fixedFileNameInput = document.getElementById('fixedFileName');
     const fileNamePreviewFixed = document.getElementById('fileNamePreviewFixed');
+    const preinputToggle = document.getElementById('preinputToggle');
+    const preinputGrid = document.getElementById('preinputGrid');
+    const showNamesToggle = document.getElementById('showNamesToggle');
+    const addAllPendingBtn = document.getElementById('addAllPendingBtn');
+    const clearPendingBtn = document.getElementById('clearPendingBtn');
+    const preinputCount = document.getElementById('preinputCount');
+    const preinputSizeSlider = document.getElementById('preinputSizeSlider');
+    const preinputSizeVal = document.getElementById('preinputSizeVal');
+    const pageSizeInput = document.getElementById('pageSizeInput');
+    const prevPageBtn = document.getElementById('prevPageBtn');
+    const nextPageBtn = document.getElementById('nextPageBtn');
+    const pageInfo = document.getElementById('pageInfo');
+    const sortBySelect = document.getElementById('sortBySelect');
+    const sortOrderBtn = document.getElementById('sortOrderBtn');
+    const gifPreviewImg = document.getElementById('gifPreviewImg');
+    const placeholderDiv = document.querySelector('.gif-placeholder');
+    const previewBtn = document.getElementById('previewBtn');
+    const resetPreviewBtn = document.getElementById('resetPreviewBtn');
+    const clearSequenceBtn = document.getElementById('clearSequenceBtn');
 
     let selectedFiles = [];
+    let pendingFiles = [];
     let currentSequence = parseInt(startSeqInput.value) || 1;
+    let folderHandle = null;
+    let monitorInterval = null;
+    let knownFileNames = new Set();
+    let currentPage = 1;
+    let sortAsc = true;
 
-    // 命名模式UI更新
-    function updateNamingUI() {
-      const isRule = namingToggle.checked;
-      if (isRule) {
-        ruleModeDiv.classList.remove('hidden');
-        fixedModeDiv.classList.add('hidden');
-      } else {
-        ruleModeDiv.classList.add('hidden');
-        fixedModeDiv.classList.remove('hidden');
+    // ========== 全局 grid 事件（仅绑定一次） ==========
+    previewGrid.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    });
+    previewGrid.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (e.target !== previewGrid) return;
+      const data = e.dataTransfer.getData('text/plain');
+      if (data.startsWith('pending:')) {
+        const pendingIndex = parseInt(data.split(':')[1]);
+        if (pendingIndex >= 0 && pendingIndex < pendingFiles.length) {
+          const file = pendingFiles[pendingIndex];
+          // 允许重复添加，不从 pendingFiles 中删除文件
+          selectedFiles.push(file);
+          // 不需要更新 knownFileNames，因为文件仍在预输入区
+          renderPreview();
+          updateFileCountText();
+          generateBtn.disabled = selectedFiles.length === 0;
+        }
       }
-      updateFileNamePreview();
+    });
+
+    // 预输入缩略图大小
+    preinputSizeSlider.addEventListener('input', () => {
+      const val = preinputSizeSlider.value + 'px';
+      preinputSizeVal.textContent = val;
+      document.documentElement.style.setProperty('--preinput-preview-size', val);
+    });
+    document.documentElement.style.setProperty('--preinput-preview-size', preinputSizeSlider.value + 'px');
+    preinputSizeVal.textContent = preinputSizeSlider.value + 'px';
+
+    showNamesToggle.addEventListener('change', () => {
+      preinputGrid.classList.toggle('show-names', showNamesToggle.checked);
+    });
+
+    function sortPendingFiles() {
+      const key = sortBySelect.value;
+      const order = sortAsc ? 1 : -1;
+      pendingFiles.sort((a, b) => {
+        if (key === 'name') return order * a.name.localeCompare(b.name);
+        if (key === 'size') return order * (a.size - b.size);
+        if (key === 'time') return order * (a.lastModified - b.lastModified);
+        return 0;
+      });
+      currentPage = 1;
+    }
+    function updateSortButtonText() { sortOrderBtn.textContent = sortAsc ? t('sortAsc') : t('sortDesc'); }
+    sortBySelect.addEventListener('change', () => { sortPendingFiles(); renderPendingGrid(); updatePageInfo(); });
+    sortOrderBtn.addEventListener('click', () => {
+      sortAsc = !sortAsc; sortPendingFiles(); renderPendingGrid(); updatePageInfo(); updateSortButtonText();
+    });
+
+    function getPageSize() { return Math.max(1, Math.min(100, parseInt(pageSizeInput.value) || 10)); }
+    function getTotalPages() { return Math.ceil(pendingFiles.length / getPageSize()) || 1; }
+    function goToPage(page) { currentPage = Math.max(1, Math.min(page, getTotalPages())); renderPendingGrid(); updatePageInfo(); }
+    function updatePageInfo() { pageInfo.textContent = `${currentPage}/${getTotalPages()}`; }
+    prevPageBtn.addEventListener('click', () => goToPage(currentPage - 1));
+    nextPageBtn.addEventListener('click', () => goToPage(currentPage + 1));
+    pageSizeInput.addEventListener('change', () => { currentPage = 1; renderPendingGrid(); updatePageInfo(); });
+
+    function renderPendingGrid() {
+      preinputGrid.innerHTML = '';
+      const pageSize = getPageSize(), start = (currentPage-1)*pageSize, end = Math.min(start+pageSize, pendingFiles.length);
+      pendingFiles.slice(start, end).forEach((file, indexInPage) => {
+        const absIndex = start + indexInPage;
+        const item = document.createElement('div'); item.className = 'preinput-item'; item.draggable = true;
+        item.setAttribute('data-pending-index', absIndex);
+        const img = document.createElement('img'); img.src = URL.createObjectURL(file); img.alt = file.name;
+        const nameSpan = document.createElement('span'); nameSpan.className = 'file-name'; nameSpan.textContent = file.name;
+        item.appendChild(img); item.appendChild(nameSpan);
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          pendingFiles.splice(absIndex,1);
+          knownFileNames.delete(file.name);
+          if(pendingFiles.length<=(currentPage-1)*pageSize && currentPage>1) currentPage--;
+          renderPendingGrid(); updatePendingCountText(); updatePageInfo();
+        });
+        item.addEventListener('dragstart', (e) => {
+          e.dataTransfer.setData('text/plain', `pending:${absIndex}`);
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        preinputGrid.appendChild(item);
+      });
+      updatePendingCountText(); updatePageInfo();
     }
 
+    function updatePendingCountText() {
+      const total = pendingFiles.length, totalPages = getTotalPages();
+      preinputCount.textContent = t('pendingCount', { total, page: currentPage, totalPages });
+    }
+
+    // 修改“全部添加”：保留预输入区文件，不检查重复，直接复制到队列
+    function addAllPendingToMain() {
+      if(pendingFiles.length === 0) return;
+      // 直接遍历添加，允许重复
+      pendingFiles.forEach(f => { selectedFiles.push(f); });
+      // 不清空 pendingFiles，也不清理 knownFileNames
+      // 更新队列视图
+      renderPreview();
+      updateFileCountText();
+      generateBtn.disabled = selectedFiles.length === 0;
+    }
+
+    function clearPending() {
+      pendingFiles.forEach(f => knownFileNames.delete(f.name));
+      pendingFiles = [];
+      currentPage = 1;
+      renderPendingGrid();
+      updatePendingCountText();
+    }
+
+    // 修改：不删除预输入文件，只插入副本到指定位置
+    function insertFileFromPending(pendingIndex, targetIndex) {
+      if(pendingIndex < 0 || pendingIndex >= pendingFiles.length) return;
+      const file = pendingFiles[pendingIndex];
+      // 直接插入，不删除原文件，不检查重复
+      selectedFiles.splice(targetIndex + 1, 0, file);
+      renderPreview();
+      updateFileCountText();
+      generateBtn.disabled = selectedFiles.length === 0;
+    }
+
+    // 监控逻辑
+    async function scanFolder() {
+      if (!folderHandle || !preinputToggle.checked) return;
+      try {
+        const permission = await folderHandle.queryPermission({ mode: 'read' });
+        if (permission !== 'granted') {
+          const newPerm = await folderHandle.requestPermission({ mode: 'read' });
+          if (newPerm !== 'granted') { stopMonitoring(); return; }
+        }
+        const newFiles = [];
+        for await (const entry of folderHandle.values()) {
+          if (entry.kind === 'file' && entry.name.match(/\.(jpg|jpeg|png|bmp|webp)$/i)) {
+            if (!knownFileNames.has(entry.name)) {
+              const file = await entry.getFile();
+              if (file.type.startsWith('image/')) { newFiles.push(file); knownFileNames.add(entry.name); }
+            }
+          }
+        }
+        if (newFiles.length > 0) {
+          pendingFiles.push(...newFiles);
+          if (currentPage > getTotalPages()) currentPage = getTotalPages();
+          renderPendingGrid();
+        }
+      } catch (err) { stopMonitoring(); }
+    }
+
+    function startMonitoring(handle) {
+      folderHandle = handle; knownFileNames.clear();
+      selectedFiles.forEach(f=>knownFileNames.add(f.name));
+      pendingFiles.forEach(f=>knownFileNames.add(f.name));
+      if(monitorInterval) clearInterval(monitorInterval);
+      monitorInterval = setInterval(scanFolder, 2000); scanFolder();
+    }
+    function stopMonitoring() { if(monitorInterval) clearInterval(monitorInterval); monitorInterval=null; folderHandle=null; }
+    preinputToggle.addEventListener('change', async () => {
+      if (preinputToggle.checked) {
+        try { const handle = await window.showDirectoryPicker(); startMonitoring(handle); }
+        catch(err) { preinputToggle.checked=false; if(err.name!=='AbortError') alert('需要 File System Access API (Chrome/Edge 桌面版)'); }
+      } else stopMonitoring();
+    });
+    addAllPendingBtn.addEventListener('click', addAllPendingToMain);
+    clearPendingBtn.addEventListener('click', clearPending);
+
+    function updateNamingUI() {
+      const isRule = namingToggle.checked;
+      ruleModeDiv.classList.toggle('hidden', !isRule); fixedModeDiv.classList.toggle('hidden', isRule);
+      updateFileNamePreview();
+    }
     function updateFileNamePreview() {
       if (namingToggle.checked) {
         const name = baseNameInput.value.trim() || (currentLang==='zh'?'未命名':'Untitled');
-        fileNamePreviewRule.textContent = t('fileNamePreviewRule', { name: name, seq: currentSequence });
+        fileNamePreviewRule.textContent = t('fileNamePreviewRule', { name, seq: currentSequence });
       } else {
         const name = fixedFileNameInput.value.trim() || (currentLang==='zh'?'未命名':'Untitled');
-        fileNamePreviewFixed.textContent = t('fileNamePreviewFixed', { name: name });
+        fileNamePreviewFixed.textContent = t('fileNamePreviewFixed', { name });
       }
     }
-
-    function resetSequence() {
-      currentSequence = parseInt(startSeqInput.value) || 1;
-      updateFileNamePreview();
-    }
-
+    function resetSequence() { currentSequence = parseInt(startSeqInput.value) || 1; updateFileNamePreview(); }
     function getNextFileName() {
       if (namingToggle.checked) {
         const name = baseNameInput.value.trim() || (currentLang==='zh'?'未命名':'Untitled');
-        const fileName = `${name}(${currentSequence}).gif`;
-        currentSequence++;
-        updateFileNamePreview();
-        return fileName;
+        const fname = `${name}(${currentSequence}).gif`; currentSequence++; updateFileNamePreview(); return fname;
       } else {
         const name = fixedFileNameInput.value.trim() || (currentLang==='zh'?'未命名':'Untitled');
         return `${name}.gif`;
       }
     }
-
-    function updateFileCountText() {
-      const count = selectedFiles.length;
-      fileCountDiv.textContent = t('fileCountBase', { count: count });
+    function updateFileCountText() { fileCountDiv.textContent = t('fileCountBase', { count: selectedFiles.length }); }
+    function clearSequence() {
+      selectedFiles = [];
+      renderPreview();
+      updateFileCountText();
+      generateBtn.disabled = true;
     }
+    clearSequenceBtn.addEventListener('click', clearSequence);
 
     namingToggle.addEventListener('change', updateNamingUI);
     baseNameInput.addEventListener('input', updateFileNamePreview);
-    startSeqInput.addEventListener('input', () => { updateFileNamePreview(); });
+    startSeqInput.addEventListener('input', () => updateFileNamePreview());
     fixedFileNameInput.addEventListener('input', updateFileNamePreview);
     resetNamingBtn.addEventListener('click', resetSequence);
 
-    // 预览大小控制
-    previewSizeInput.addEventListener('input', () => {
-      const size = previewSizeInput.value + 'px';
-      previewSizeVal.textContent = size;
-      document.documentElement.style.setProperty('--preview-size', size);
-    });
-
-    qualityInput.addEventListener('input', () => qualityVal.textContent = qualityInput.value);
-
-    // 渲染预览（拖拽排序）
+    // 主预览渲染
     function renderPreview() {
       previewGrid.innerHTML = '';
       selectedFiles.forEach((file, index) => {
-        const item = document.createElement('div');
-        item.className = 'preview-item';
-        item.draggable = true;
+        const item = document.createElement('div'); item.className = 'preview-item'; item.draggable = true;
         item.setAttribute('data-index', index);
-
-        const img = document.createElement('img');
-        img.src = URL.createObjectURL(file);
-        img.alt = file.name;
-        img.draggable = false;
-
-        const span = document.createElement('span');
-        span.className = 'index';
-        span.textContent = index + 1;
-
-        item.appendChild(img);
-        item.appendChild(span);
+        const img = document.createElement('img'); img.src = URL.createObjectURL(file); img.alt = file.name; img.draggable = false;
+        const deleteBtn = document.createElement('span'); deleteBtn.className = 'delete-btn'; deleteBtn.textContent = '×';
+        deleteBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          selectedFiles.splice(index, 1);
+          // 注意：删除队列文件不需要更新 knownFileNames，因为监控区文件仍然独立存在
+          renderPreview(); updateFileCountText(); generateBtn.disabled = selectedFiles.length === 0;
+        });
+        const span = document.createElement('span'); span.className = 'index'; span.textContent = index + 1;
+        item.appendChild(img); item.appendChild(deleteBtn); item.appendChild(span);
 
         item.addEventListener('dragstart', (e) => {
-          e.dataTransfer.setData('text/plain', index.toString());
-          item.classList.add('dragging');
+          e.dataTransfer.setData('text/plain', `sort:${index}`); item.classList.add('dragging');
           e.dataTransfer.effectAllowed = 'move';
         });
         item.addEventListener('dragend', () => {
           item.classList.remove('dragging');
           document.querySelectorAll('.preview-item').forEach(el => el.classList.remove('drag-over'));
         });
-        item.addEventListener('dragover', (e) => {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = 'move';
-          item.classList.add('drag-over');
-        });
+        item.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; item.classList.add('drag-over'); });
         item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
         item.addEventListener('drop', (e) => {
           e.preventDefault();
-          const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
-          const toIndex = parseInt(item.getAttribute('data-index'));
-          if (!isNaN(fromIndex) && !isNaN(toIndex) && fromIndex !== toIndex) {
-            [selectedFiles[fromIndex], selectedFiles[toIndex]] = [selectedFiles[toIndex], selectedFiles[fromIndex]];
-            renderPreview();
-            updateFileCountText();
-            generateBtn.disabled = selectedFiles.length === 0;
+          e.stopPropagation();
+          const data = e.dataTransfer.getData('text/plain');
+          if (data.startsWith('pending:')) {
+            const pendingIndex = parseInt(data.split(':')[1]);
+            const targetIndex = parseInt(item.getAttribute('data-index'));
+            insertFileFromPending(pendingIndex, targetIndex);
+          } else if (data.startsWith('sort:')) {
+            const fromIndex = parseInt(data.split(':')[1]);
+            const toIndex = parseInt(item.getAttribute('data-index'));
+            if (!isNaN(fromIndex) && !isNaN(toIndex) && fromIndex !== toIndex) {
+              [selectedFiles[fromIndex], selectedFiles[toIndex]] = [selectedFiles[toIndex], selectedFiles[fromIndex]];
+              renderPreview(); updateFileCountText(); generateBtn.disabled = selectedFiles.length === 0;
+            }
           }
           item.classList.remove('drag-over');
         });
-
         previewGrid.appendChild(item);
       });
     }
 
-    function updateFiles(files) {
-      selectedFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
-      selectedFiles.sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric: true}));
-      renderPreview();
-      updateFileCountText();
-      generateBtn.disabled = selectedFiles.length === 0;
+    function addManualFiles(files) {
+      const newFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+      newFiles.forEach(f => { selectedFiles.push(f); }); // 允许重复
+      // 不自动排序，保持添加顺序或手动拖拽排序
+      renderPreview(); updateFileCountText(); generateBtn.disabled = selectedFiles.length === 0;
     }
 
     dropZone.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', e => updateFiles(e.target.files));
+    fileInput.addEventListener('change', e => addManualFiles(e.target.files));
     dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
     dropZone.addEventListener('drop', e => {
-      e.preventDefault();
-      dropZone.classList.remove('dragover');
-      updateFiles(e.dataTransfer.files);
+      e.preventDefault(); dropZone.classList.remove('dragover'); addManualFiles(e.dataTransfer.files);
     });
 
-    // 生成 GIF
-    generateBtn.addEventListener('click', async () => {
+    async function generateGif(download = true) {
       if (selectedFiles.length === 0) return;
-
       const fps = parseInt(fpsInput.value) || 10;
       const quality = parseInt(qualityInput.value) || 15;
       const delay = Math.round(1000 / fps);
       let workerCount = parseInt(workersInput.value);
-      if (isNaN(workerCount) || workerCount < 1) {
-        workerCount = Math.max(1, (navigator.hardwareConcurrency || 4) - 1);
-      }
+      if (isNaN(workerCount) || workerCount < 1) workerCount = Math.max(1, (navigator.hardwareConcurrency || 4) - 1);
       const loopFramesNum = parseInt(loopFramesInput.value) || 0;
       const loopRepeat = parseInt(loopRepeatInput.value) || 1;
 
@@ -603,16 +855,13 @@ SOFTWARE.--><!DOCTYPE html>
         finalFiles.push(...tail);
       }
 
-      statusDiv.textContent = t('statusLoading');
-      statusDiv.className = 'status loading';
-      generateBtn.disabled = true;
+      statusDiv.textContent = t('statusLoading'); statusDiv.className = 'status loading';
+      generateBtn.disabled = true; previewBtn.disabled = true;
 
       try {
         const images = await Promise.all(finalFiles.map(file => {
           return new Promise((resolve, reject) => {
-            const img = new Image();
-            img.onload = () => resolve(img);
-            img.onerror = reject;
+            const img = new Image(); img.onload = () => resolve(img); img.onerror = reject;
             img.src = URL.createObjectURL(file);
           });
         }));
@@ -622,8 +871,7 @@ SOFTWARE.--><!DOCTYPE html>
 
         const gifOptions = {
           quality: Math.min(30, Math.max(quality, 20)),
-          width: targetW,
-          height: targetH,
+          width: targetW, height: targetH,
           workers: workerCount,
           workerScript: workerBlobURL
         };
@@ -632,8 +880,7 @@ SOFTWARE.--><!DOCTYPE html>
         statusDiv.textContent = t('statusProcessing', { workers: gifOptions.workers });
 
         const canvas = document.createElement('canvas');
-        canvas.width = targetW;
-        canvas.height = targetH;
+        canvas.width = targetW; canvas.height = targetH;
         const ctx = canvas.getContext('2d');
 
         for (let i = 0; i < images.length; i++) {
@@ -645,8 +892,7 @@ SOFTWARE.--><!DOCTYPE html>
           const offsetY = (targetH - scaledH) / 2;
 
           ctx.clearRect(0, 0, targetW, targetH);
-          ctx.fillStyle = '#000000';
-          ctx.fillRect(0, 0, targetW, targetH);
+          ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, targetW, targetH);
           ctx.drawImage(img, offsetX, offsetY, scaledW, scaledH);
           gif.addFrame(ctx, { copy: true, delay: delay });
 
@@ -658,14 +904,18 @@ SOFTWARE.--><!DOCTYPE html>
 
         gif.on('finished', blob => {
           const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = getNextFileName();
-          a.click();
-          URL.revokeObjectURL(url);
-          statusDiv.textContent = t('statusSuccess', { size: (blob.size/1024).toFixed(1) });
+          if (gifPreviewImg.src) URL.revokeObjectURL(gifPreviewImg.src);
+          gifPreviewImg.src = url; gifPreviewImg.style.display = 'block';
+          placeholderDiv.style.display = 'none';
+
+          if (download) {
+            const a = document.createElement('a'); a.href = url; a.download = getNextFileName(); a.click();
+            statusDiv.textContent = t('statusSuccess', { size: (blob.size/1024).toFixed(1) });
+          } else {
+            statusDiv.textContent = '👁 预览生成成功';
+          }
           statusDiv.className = 'status success';
-          generateBtn.disabled = false;
+          generateBtn.disabled = false; previewBtn.disabled = false;
         });
 
         gif.render();
@@ -673,15 +923,34 @@ SOFTWARE.--><!DOCTYPE html>
       } catch (err) {
         statusDiv.textContent = t('statusError', { message: err.message });
         statusDiv.className = 'status error';
-        generateBtn.disabled = false;
+        generateBtn.disabled = false; previewBtn.disabled = false;
         console.error(err);
       }
+    }
+
+    previewBtn.addEventListener('click', () => generateGif(false));
+    generateBtn.addEventListener('click', () => generateGif(true));
+    resetPreviewBtn.addEventListener('click', () => {
+      if (gifPreviewImg.src) URL.revokeObjectURL(gifPreviewImg.src);
+      gifPreviewImg.src = ''; gifPreviewImg.style.display = 'none'; placeholderDiv.style.display = 'block';
     });
 
-    // 初始化
-    updateNamingUI();
-    applyLanguage();
-    updateFileNamePreview();
+    function initAll() {
+      updateNamingUI(); applyLanguage(); updateFileNamePreview(); renderPendingGrid();
+      placeholderDiv.style.display='block'; gifPreviewImg.style.display='none';
+      document.documentElement.style.setProperty('--main-preview-size', previewSizeInput.value+'px');
+      previewSizeVal.textContent = previewSizeInput.value+'px';
+      previewSizeInput.addEventListener('input', () => {
+        const size = previewSizeInput.value+'px';
+        previewSizeVal.textContent = size;
+        document.documentElement.style.setProperty('--main-preview-size', size);
+      });
+      qualityInput.addEventListener('input', () => qualityVal.textContent = qualityInput.value);
+      updateSortButtonText();
+      applyDefaultFlex();
+    }
+
+    initAll();
   })();
 </script>
 </body>
