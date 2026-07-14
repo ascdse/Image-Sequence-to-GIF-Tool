@@ -7,7 +7,7 @@
 3、具备自定义文件名的功能，并且可以开启文件名自动递增文件序号功能
 写这个程序的原因很简单，我在玩rpg游戏的时候发现游戏的动图效果是通过一张张图片拼接而成的，但是就在我寻找相关工具的时候发现太复杂了，于是就决定自己做一个简单点的工具
 这也是我第一次尝试写程序，在很多方面都借助了AI工具，请多多包涵
-<img width="1520" height="894" alt="CN" src="https://github.com/user-attachments/assets/563723be-5ad6-4ac5-9f4b-0d20cb1109b9" />
+<img width="1760" height="930" alt="2026-07-14_23-06-37" src="https://github.com/user-attachments/assets/ecd7a7d5-dd58-4ee9-b20b-1ef488c41f09" />
 
 (Sorry, my English is not very good, so I can only use machine translation)  
 This is a simple frame sequence to GIF software.  
@@ -18,4 +18,5 @@ The software is used to convert image sequences (supports various image types) i
 
 The reason I wrote this program is simple: when I was playing RPG games, I noticed that the animation effects in the games were made by stitching together individual images. But when I was looking for relevant tools, I found them too complicated, so I decided to make a simpler tool myself.  
 This is also my first attempt at programming, and I relied on AI tools in many aspects, so please bear with me.
-<img width="1517" height="895" alt="EN" src="https://github.com/user-attachments/assets/acc072cc-563b-4061-8cef-628fec5e325e" />
+<img width="1760" height="930" alt="2026-07-14_23-06-46" src="https://github.com/user-attachments/assets/385eb9d9-31ba-4ed4-9595-a806c06ee3fa" />
+
